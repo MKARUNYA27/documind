@@ -1,0 +1,10 @@
+﻿venv/
+.env
+__pycache__/
+*.pyc
+chroma_db/
+chroma_db_week2/
+chroma_db_app/
+data/
+.ipynb_checkpoints/
+.DS_Store
