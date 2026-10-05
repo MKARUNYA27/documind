@@ -1,4 +1,5 @@
 # 📚 DocuMind — RAG Document Q&A
+🔗 **[Live Demo](https://documind-nu7d.onrender.com)** · *Note: Free tier — first request may take ~30 seconds to wake up.*
 
 A Retrieval-Augmented Generation (RAG) chatbot that answers questions from your uploaded documents with **source citations**.
 
