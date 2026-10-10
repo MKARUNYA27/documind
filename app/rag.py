@@ -17,11 +17,11 @@ from langchain_core.output_parsers import StrOutputParser
 load_dotenv()
 
 # Config
-CHUNK_SIZE = 500
+CHUNK_SIZE = 400
 CHUNK_OVERLAP = 50
-EMBED_MODEL = "all-MiniLM-L6-v2"
+EMBED_MODEL = "sentence-transformers/paraphrase-MiniLM-L3-v2"
 GROQ_MODEL = "openai/gpt-oss-20b"
-TOP_K = 6
+TOP_K = 3
 PERSIST_DIR = "./chroma_db_app"
 UPLOAD_DIR = "./data/uploads"
 
