@@ -1,16 +1,16 @@
 #!/bin/bash
 set -e
 
-# Use Render's PORT env var, default to 7860 for local testing
-PORT=${PORT:-7860}
+# Render assigns the port via $PORT; fall back to 10000 for local testing
+PORT=${PORT:-10000}
 
-# Start FastAPI backend in background
-uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+echo "Starting FastAPI on internal port 8000..."
+uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 
-# Wait for backend
+# Wait for backend to be ready
 sleep 5
 
-# Start Streamlit on the assigned port
+echo "Starting Streamlit on port $PORT..."
 streamlit run app/ui.py \
     --server.port=$PORT \
     --server.address=0.0.0.0 \
