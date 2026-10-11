@@ -1,18 +1,21 @@
 import os
-import requests
 import streamlit as st
 
 # Load API key from Streamlit secrets (Cloud) or .env (local)
 if "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
-API_URL = "http://localhost:8000"
+try:
+    from app.rag import ingest_files, answer_question, UPLOAD_DIR
+except ModuleNotFoundError:
+    from rag import ingest_files, answer_question, UPLOAD_DIR
 
 st.set_page_config(page_title="DocuMind", page_icon="📚", layout="wide")
 
 st.title("📚 DocuMind")
 st.caption("RAG-based document Q&A with source citations")
 
+# --- Sidebar: upload ---
 with st.sidebar:
     st.header("📁 Upload Documents")
     uploaded = st.file_uploader(
@@ -20,14 +23,19 @@ with st.sidebar:
         type=["pdf", "docx", "txt"],
         accept_multiple_files=True,
     )
+
     if st.button("Process", type="primary", disabled=not uploaded):
         with st.spinner("Uploading and embedding..."):
-            files = [("files", (f.name, f.getvalue())) for f in uploaded]
+            saved_paths = []
+            for f in uploaded:
+                dest = os.path.join(UPLOAD_DIR, f.name)
+                with open(dest, "wb") as out:
+                    out.write(f.getbuffer())
+                saved_paths.append(dest)
+
             try:
-                r = requests.post(f"{API_URL}/upload", files=files, timeout=600)
-                r.raise_for_status()
-                data = r.json()
-                st.success(f"✅ {data['message']} ({data['chunks']} chunks)")
+                chunk_count = ingest_files(saved_paths)
+                st.success(f"✅ Ingested {len(saved_paths)} file(s) ({chunk_count} chunks)")
             except Exception as e:
                 st.error(f"Upload failed: {e}")
 
@@ -37,7 +45,7 @@ with st.sidebar:
         st.rerun()
 
 
-# Chat history
+# --- Chat history ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -50,7 +58,8 @@ for msg in st.session_state.messages:
                     st.markdown(f"**[{s['n']}]** {s['file']} (page {s['page']})")
                     st.caption(s["preview"] + "...")
 
-# Input
+
+# --- Chat input ---
 if prompt := st.chat_input("Ask a question about your documents..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -59,19 +68,17 @@ if prompt := st.chat_input("Ask a question about your documents..."):
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                r = requests.post(f"{API_URL}/chat", json={"question": prompt}, timeout=120)
-                r.raise_for_status()
-                data = r.json()
-                st.markdown(data["answer"])
-                if data.get("sources"):
+                result = answer_question(prompt)
+                st.markdown(result["answer"])
+                if result.get("sources"):
                     with st.expander("📚 Sources"):
-                        for s in data["sources"]:
+                        for s in result["sources"]:
                             st.markdown(f"**[{s['n']}]** {s['file']} (page {s['page']})")
                             st.caption(s["preview"] + "...")
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": data["answer"],
-                    "sources": data.get("sources", [])
+                    "content": result["answer"],
+                    "sources": result.get("sources", [])
                 })
             except Exception as e:
                 st.error(f"Request failed: {e}")
