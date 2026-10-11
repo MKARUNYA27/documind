@@ -8,7 +8,7 @@ from langchain_community.document_loaders import (
     TextLoader,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
@@ -19,7 +19,7 @@ load_dotenv()
 # Config
 CHUNK_SIZE = 400
 CHUNK_OVERLAP = 50
-EMBED_MODEL = "sentence-transformers/paraphrase-MiniLM-L3-v2"
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 GROQ_MODEL = "openai/gpt-oss-20b"
 TOP_K = 3
 PERSIST_DIR = "./chroma_db_app"
@@ -30,11 +30,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Embeddings (loaded once at startup)
 _embeddings = None
 
+from langchain_huggingface import HuggingFaceEmbeddings
+
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
         _embeddings = HuggingFaceEmbeddings(
-            model_name=EMBED_MODEL,
+            model_name="all-MiniLM-L6-v2",
             model_kwargs={"device": "cpu"}
         )
     return _embeddings
@@ -72,14 +74,24 @@ def ingest_files(file_paths):
     for i, c in enumerate(chunks):
         c.metadata["chunk_id"] = i
 
-    # Wipe and rebuild vector store
-    if os.path.exists(PERSIST_DIR):
-        shutil.rmtree(PERSIST_DIR)
+    # Instead of deleting the folder (which Windows locks), create/reuse
+    # a Chroma instance and delete the collection's contents.
+    import chromadb
+    client = chromadb.PersistentClient(path=PERSIST_DIR)
 
+    # Delete existing collection if it exists
+    try:
+        client.delete_collection("langchain")
+    except Exception:
+        pass
+
+    # Rebuild the vector store
     Chroma.from_documents(
         documents=chunks,
         embedding=get_embeddings(),
-        persist_directory=PERSIST_DIR
+        persist_directory=PERSIST_DIR,
+        collection_name="langchain",
+        client=client,
     )
     return len(chunks)
 

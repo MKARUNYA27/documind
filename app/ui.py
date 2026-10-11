@@ -1,5 +1,10 @@
+import os
 import requests
 import streamlit as st
+
+# Load API key from Streamlit secrets (Cloud) or .env (local)
+if "GROQ_API_KEY" in st.secrets:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 API_URL = "http://localhost:8000"
 
